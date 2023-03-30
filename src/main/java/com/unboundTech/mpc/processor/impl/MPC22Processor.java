@@ -2,6 +2,7 @@ package com.unboundTech.mpc.processor.impl;
 
 import com.unboundTech.mpc.Context;
 import com.unboundTech.mpc.MPCException;
+import com.unboundTech.mpc.Share;
 import com.unboundTech.mpc.model.MPC22Interaction;
 import com.unboundTech.mpc.processor.ReqMsgProcessor;
 import com.unboundTech.mpc.server.ConnectionHolder;
@@ -23,7 +24,7 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
 
     @Override
     protected void processMsg(MPC22Interaction msg) {
-        System.out.println("mpc22 req");
+        log.info("get mpc22 req, seq={}, +++++++++++++++++++++", getMsgWrapper().seq);
         Channel channel = super.getChannel();
         OracleStep oracleStep = ConnectionHolder.getOracleStep(channel);
 
@@ -32,8 +33,10 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
             return;
         }
 
+        Context context = null;
+        Share share = null;
+
         if (MPC22Interaction.Command.generate.equals(msg.command)) {
-            Context context = null;
             if (MPC22Interaction.Type.ecdsa.equals(msg.type)) {
                 try {
                     context = Context.initGenerateEcdsaKey(2);
@@ -49,10 +52,11 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
                     return;
                 }
             }
-            oracleStep = new OracleStep(null, context);
-            ConnectionHolder.addConnection(channel, oracleStep);
-            oracleStep.step(this, msg);
         }
+
+        oracleStep = new OracleStep(share, context);
+        ConnectionHolder.addConnection(channel, oracleStep);
+        oracleStep.step(this, msg);
 
     }
 }

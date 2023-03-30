@@ -62,6 +62,7 @@ public class OracleStep implements AutoCloseable {
                 interaction.messageBuf = null;
                 processor.successRsp(JSON.toJSONBytes(interaction));
             }
+            System.out.println("send mpc22 Rsp=++++++++++++++++++++++++++++++++++");
         } catch (Exception e) {
             log.error("step exception:", e);
         }
@@ -102,7 +103,7 @@ public class OracleStep implements AutoCloseable {
             if (messageAndFlags.message != null) {
                 interaction.messageBuf = messageAndFlags.message.toBuf();
 
-                MsgWrapper rspWrapper = syncClient.sendReq(ReqKey.mpc22, JSON.toJSONBytes(interaction));
+                MsgWrapper rspWrapper = syncClient.sendReq(ReqKey.mpc22, JSON.toJSONBytes(interaction)).get();
                 if (rspWrapper.rspCode == 200) {
                     System.out.println("get rsp");
                     MPC22Interaction rspInteraction = JSON.parseObject(rspWrapper.body, MPC22Interaction.class);
