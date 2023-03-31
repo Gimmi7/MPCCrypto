@@ -2,6 +2,7 @@ package com.unboundTech.mpc.step;
 
 import com.alibaba.fastjson2.JSON;
 import com.unboundTech.mpc.Context;
+import com.unboundTech.mpc.MPCException;
 import com.unboundTech.mpc.Message;
 import com.unboundTech.mpc.Share;
 import com.unboundTech.mpc.client.SyncClient;
@@ -10,16 +11,15 @@ import com.unboundTech.mpc.model.MPC22Interaction;
 import com.unboundTech.mpc.processor.impl.MPC22Processor;
 import com.unboundTech.mpc.socketmsg.MsgWrapper;
 import com.unboundTech.mpc.socketmsg.ReqKey;
+import com.unboundTech.mpc.socketmsg.RspCode;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import java.io.File;
-
 @Slf4j
 public class OracleStep implements AutoCloseable {
-    public Share share = null;
-    public Context context = null;
+    private Share share = null;
+    private Context context = null;
 
 
     public OracleStep(Share share, Context context) {
@@ -28,6 +28,7 @@ public class OracleStep implements AutoCloseable {
     }
 
     public boolean step(MPC22Processor processor, MPC22Interaction interaction) {
+        interaction.initContext = false;
         boolean finished = false;
 
         byte[] msgBuf = interaction.messageBuf;
@@ -63,8 +64,23 @@ public class OracleStep implements AutoCloseable {
                 processor.successRsp(JSON.toJSONBytes(interaction));
             }
             System.out.println("send mpc22 Rsp=++++++++++++++++++++++++++++++++++");
+            // reset the Context
+            if (finished) {
+                this.close();
+            }
         } catch (Exception e) {
-            log.error("step exception:", e);
+            if (e instanceof MPCException) {
+                log.error("step MpcException, errorCode={}:", ((MPCException) e).errorCode, e);
+            } else {
+                log.error("step exception:", e);
+            }
+            try {
+                this.close();
+            } catch (Exception ex) {
+                log.error("close oracleStep fail:", ex);
+            }
+            RspCode rspCode = RspCode.unknown_exception;
+            processor.failRsp(rspCode.errCode, rspCode.errMsg + ":" + e.getMessage());
         }
 
         return finished;
@@ -111,6 +127,8 @@ public class OracleStep implements AutoCloseable {
                         return finished;
                     }
                     return clientStep(syncClient, rspInteraction);
+                } else {
+                    log.error("req fail:{}", ToStringBuilder.reflectionToString(rspWrapper, ToStringStyle.JSON_STYLE));
                 }
             }
         } catch (Exception e) {
@@ -127,4 +145,9 @@ public class OracleStep implements AutoCloseable {
         share = null;
         context = null;
     }
+
+    public boolean hasContext() {
+        return this.context != null;
+    }
+
 }

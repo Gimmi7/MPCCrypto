@@ -7,10 +7,13 @@ import sun.misc.IOUtils;
 import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 @Slf4j
 public class MPC22Sink {
 
+    private static ConcurrentMap<String, byte[]> cachedShareBuf = new ConcurrentHashMap<>();
     public static String shareFileFormat = "./%s/%s.share";
 
 
@@ -21,6 +24,9 @@ public class MPC22Sink {
 
         try (OutputStream outputStream = FileUtils.openOutputStream(shareFile)) {
             outputStream.write(shareBuf);
+            // remove cached share
+            String cacheKey = String.format("%d_%s", peerInt, userId);
+            cachedShareBuf.remove(cacheKey);
         } catch (Exception e) {
             log.error("sinkShare err:", e);
             return false;
@@ -30,11 +36,19 @@ public class MPC22Sink {
 
     public static byte[] loadShare(int peerInt, String userId) {
 
+        String cacheKey = String.format("%d_%s", peerInt, userId);
+        byte[] shareBuf = cachedShareBuf.get(cacheKey);
+        if (shareBuf != null) {
+            return shareBuf;
+        }
+
         String shareFilePath = getShareFilePath(peerInt, userId);
         File shareFile = new File(shareFilePath);
 
         try (InputStream inputStream = FileUtils.openInputStream(shareFile)) {
-            return IOUtils.readAllBytes(inputStream);
+            shareBuf = IOUtils.readAllBytes(inputStream);
+            cachedShareBuf.put(cacheKey, shareBuf);
+            return shareBuf;
         } catch (Exception e) {
             log.error("loadShare err:", e);
             return null;

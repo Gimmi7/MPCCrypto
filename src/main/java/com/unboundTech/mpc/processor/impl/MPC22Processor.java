@@ -3,15 +3,15 @@ package com.unboundTech.mpc.processor.impl;
 import com.unboundTech.mpc.Context;
 import com.unboundTech.mpc.MPCException;
 import com.unboundTech.mpc.Share;
+import com.unboundTech.mpc.helper.MPC22Sink;
 import com.unboundTech.mpc.model.MPC22Interaction;
 import com.unboundTech.mpc.processor.ReqMsgProcessor;
 import com.unboundTech.mpc.server.ConnectionHolder;
 import com.unboundTech.mpc.socketmsg.ReqKey;
+import com.unboundTech.mpc.socketmsg.RspCode;
 import com.unboundTech.mpc.step.OracleStep;
 import io.netty.channel.Channel;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -22,13 +22,15 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
         return ReqKey.mpc22;
     }
 
+    private final static int serverPeer = 2;
+
     @Override
     protected void processMsg(MPC22Interaction msg) {
-        log.info("get mpc22 req, seq={}, +++++++++++++++++++++", getMsgWrapper().seq);
+        log.info("get mpc22 req, command={}, seq={}, +++++++++++++++++++++", msg.command, getMsgWrapper().seq);
         Channel channel = super.getChannel();
         OracleStep oracleStep = ConnectionHolder.getOracleStep(channel);
 
-        if (oracleStep != null) {
+        if (oracleStep != null && oracleStep.hasContext() && !msg.initContext) {
             oracleStep.step(this, msg);
             return;
         }
@@ -39,24 +41,79 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
         if (MPC22Interaction.Command.generate.equals(msg.command)) {
             if (MPC22Interaction.Type.ecdsa.equals(msg.type)) {
                 try {
-                    context = Context.initGenerateEcdsaKey(2);
+                    context = Context.initGenerateEcdsaKey(serverPeer);
                 } catch (MPCException e) {
                     log.error("initGenerateEcdsaKey err:", e);
                     return;
                 }
             } else if (MPC22Interaction.Type.eddsa.equals(msg.type)) {
                 try {
-                    context = Context.initGenerateEddsaKey(2);
+                    context = Context.initGenerateEddsaKey(serverPeer);
                 } catch (MPCException e) {
                     log.error("initGenerateEcdsaKey err:", e);
                     return;
                 }
             }
+        } else if (MPC22Interaction.Command.refresh.equals(msg.command)) {
+            // load share
+            share = this.loadShareAutoFailRsp();
+            if (share == null) {
+                return;
+            }
+            try {
+                context = share.initRefreshKey(serverPeer);
+            } catch (MPCException e) {
+                RspCode rspCode = RspCode.init_refresh_fail;
+                failRsp(rspCode.errCode, rspCode.errMsg + ":" + e.errorCode);
+                return;
+            }
+        } else if (MPC22Interaction.Command.sign.equals(msg.command)) {
+            share = this.loadShareAutoFailRsp();
+            if (share == null) {
+                return;
+            }
+            if (MPC22Interaction.Type.ecdsa.equals(msg.type)) {
+                try {
+                    context = share.initEcdsaSign(serverPeer, msg.rawBytes, msg.refreshWhenSign);
+                } catch (MPCException e) {
+                    RspCode rspCode = RspCode.init_sign_fail;
+                    failRsp(rspCode.errCode, rspCode.errMsg + ":" + e.errorCode);
+                    return;
+                }
+            } else if (MPC22Interaction.Type.eddsa.equals(msg.type)) {
+                try {
+                    context = share.initEddsaSign(serverPeer, msg.rawBytes, msg.refreshWhenSign);
+                } catch (MPCException e) {
+                    RspCode rspCode = RspCode.init_sign_fail;
+                    failRsp(rspCode.errCode, rspCode.errMsg + ":" + e.errorCode);
+                    return;
+                }
+            }
         }
+
 
         oracleStep = new OracleStep(share, context);
         ConnectionHolder.addConnection(channel, oracleStep);
         oracleStep.step(this, msg);
+    }
 
+
+    private Share loadShareAutoFailRsp() {
+        byte[] shareBuf = MPC22Sink.loadShare(serverPeer, getUserId());
+
+        RspCode rspCode = RspCode.load_share_fail;
+        if (shareBuf == null) {
+            // send fail rsp
+            failRsp(rspCode.errCode, rspCode.errMsg);
+            return null;
+        }
+        try {
+            return Share.fromBuf(shareBuf);
+        } catch (MPCException e) {
+            log.error("loadShare_err: fail to call Share.fromBuf:", e);
+            // send fail rsp
+            failRsp(rspCode.errCode, rspCode.errMsg + ":" + e.errorCode);
+            return null;
+        }
     }
 }

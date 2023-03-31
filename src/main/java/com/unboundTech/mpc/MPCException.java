@@ -23,22 +23,21 @@
 
 package com.unboundTech.mpc;
 
-public class MPCException extends Exception
-{
-  public static final int MPC_E_BADARG     = (int)0xff010002; // bad argument
-  public static final int MPC_E_FORMAT     = (int)0xff010003; // invalid format
-  public static final int MPC_E_TOO_SMALL  = (int)0xff010008; // buffer too small
-  public static final int MPC_E_CRYPTO     = (int)0xff040001; // crypto error, process is being tampered
+import sun.security.rsa.RSAUtil;
 
-  public int errorCode = 0;
+public class MPCException extends Exception {
+    public static final int MPC_E_BADARG = (int) 0xff010002; // bad argument -16711678
+    public static final int MPC_E_FORMAT = (int) 0xff010003; // invalid format  -16711677
+    public static final int MPC_E_TOO_SMALL = (int) 0xff010008; // buffer too small  -16711672
+    public static final int MPC_E_CRYPTO = (int) 0xff040001; // crypto error, process is being tampered  -16515071
 
-  MPCException(int errorCode)
-  {
-    this.errorCode = errorCode;
-  }
+    public int errorCode = 0;
 
-  static void check(int errorCode) throws MPCException
-  {
-    if (errorCode!=0) throw new MPCException(errorCode);
-  }
+    MPCException(int errorCode) {
+        this.errorCode = errorCode;
+    }
+
+    static void check(int errorCode) throws MPCException {
+        if (errorCode != 0) throw new MPCException(errorCode);
+    }
 }
