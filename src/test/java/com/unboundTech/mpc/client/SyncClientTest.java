@@ -22,11 +22,31 @@ class SyncClientTest {
     @Autowired
     private SyncClient syncClient;
 
+    private String userId = System.getProperty("test.userid", "Alice");
+
+    // used for concurrent test
+    @AfterEach
+    void delay() {
+        int min = 3000;
+        int max = 5000;
+        int gap = max - min;
+        double seed = Math.random();
+        double random = seed * gap;
+        int duration = min + (int) random;
+        System.out.printf("sleep %d ms ................ \n", duration);
+        try {
+            Thread.sleep(duration);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Order(1)
-    @BeforeAll
+//    @BeforeAll
     @SneakyThrows
     @Test
     void connect() {
+        syncClient.userId = userId;
         String url = "ws://localhost:2021/live";
         syncClient.connect(url);
         System.out.println("client: connect socket success");
@@ -36,8 +56,6 @@ class SyncClientTest {
     @SneakyThrows
     @Test
     void generateEcdsa() {
-        syncClient.userId = "Alice";
-
         OracleStep oracleStep = new OracleStep(null, Context.initGenerateEcdsaKey(1));
 
         MPC22Interaction interaction = new MPC22Interaction();
@@ -47,13 +65,12 @@ class SyncClientTest {
 
         boolean flag = oracleStep.clientStep(syncClient, interaction);
         System.out.println("generate flag=" + flag);
+        Assertions.assertTrue(flag);
     }
 
     @SneakyThrows
 //    @Test
     void generateEddsa() {
-        syncClient.userId = "Bob";
-
         OracleStep oracleStep = new OracleStep(null, Context.initGenerateEddsaKey(1));
 
         MPC22Interaction interaction = new MPC22Interaction();
@@ -63,13 +80,12 @@ class SyncClientTest {
 
         boolean flag = oracleStep.clientStep(syncClient, interaction);
         System.out.println("generate flag=" + flag);
+        Assertions.assertTrue(flag);
     }
 
     @SneakyThrows
 //    @Test
     void compareShare() {
-        syncClient.userId = "Alice";
-
         byte[] clientShareBuf = MPC22Sink.loadShare(1, syncClient.userId);
         Share clientShare = Share.fromBuf(clientShareBuf);
         System.out.println("client share:" + ToStringBuilder.reflectionToString(clientShare.getInfo(), ToStringStyle.JSON_STYLE) + ToStringBuilder.reflectionToString(clientShare, ToStringStyle.JSON_STYLE));
@@ -83,8 +99,6 @@ class SyncClientTest {
     @SneakyThrows
     @Test
     void refreshShare() {
-        syncClient.userId = "Alice";
-
         byte[] clientShareBuf = MPC22Sink.loadShare(1, syncClient.userId);
         Share clientShare = Share.fromBuf(clientShareBuf);
         System.out.println("client share:" + ToStringBuilder.reflectionToString(clientShare.getInfo(), ToStringStyle.JSON_STYLE));
@@ -102,6 +116,7 @@ class SyncClientTest {
         clientShareBuf = MPC22Sink.loadShare(1, syncClient.userId);
         clientShare = Share.fromBuf(clientShareBuf);
         System.out.println("client share:" + ToStringBuilder.reflectionToString(clientShare.getInfo(), ToStringStyle.JSON_STYLE));
+        Assertions.assertTrue(flag);
     }
 
 
@@ -109,7 +124,6 @@ class SyncClientTest {
     @SneakyThrows
     @Test
     void sign() {
-        syncClient.userId = "Alice";
         byte[] rawBytes = "hello".getBytes();
         boolean refreshWhenSign = false;
 
@@ -139,23 +153,26 @@ class SyncClientTest {
         boolean flag = oracleStep.clientStep(syncClient, interaction);
         System.out.println("flag=" + flag);
 
-        if (flag) {
-            if (refreshWhenSign) {
-                clientShare.close();
-                clientShare = Share.fromBuf(clientShareBuf);
-            }
-            if (MPC22KeyType.KEY_TYPE_ECDSA == shareType) {
-                byte[] signature = context.getResultEcdsaSign();
-                ECPublicKey pubKey = clientShare.getEcdsaPublic();
-                flag = Share.verifyEcdsa(pubKey, rawBytes, signature);
-                System.out.println("signature verify flag=" + flag);
-            } else if (MPC22KeyType.KEY_TYPE_EDDSA == shareType) {
-                byte[] signature = context.getResultEddsaSign();
-                byte[] pubKey = clientShare.getEddsaPublic();
-                flag = Share.verifyEddsa(pubKey, rawBytes, signature);
-                System.out.println("signature verify flag=" + flag);
-            }
+        Assertions.assertTrue(flag);
+
+        if (refreshWhenSign) {
+            clientShare.close();
+            clientShare = Share.fromBuf(clientShareBuf);
         }
+        if (MPC22KeyType.KEY_TYPE_ECDSA == shareType) {
+            byte[] signature = context.getResultEcdsaSign();
+            ECPublicKey pubKey = clientShare.getEcdsaPublic();
+            flag = Share.verifyEcdsa(pubKey, rawBytes, signature);
+            System.out.println("signature verify flag=" + flag);
+        } else if (MPC22KeyType.KEY_TYPE_EDDSA == shareType) {
+            byte[] signature = context.getResultEddsaSign();
+            byte[] pubKey = clientShare.getEddsaPublic();
+            flag = Share.verifyEddsa(pubKey, rawBytes, signature);
+            System.out.println("signature verify flag=" + flag);
+        }
+
+        Assertions.assertTrue(flag);
     }
+
 }
 

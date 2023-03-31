@@ -23,8 +23,8 @@
 
 package com.unboundTech.mpc;
 
+import org.apache.commons.io.IOUtils;
 import org.springframework.core.io.ClassPathResource;
-import sun.misc.IOUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,7 +47,7 @@ public class Native {
             tmpFile.deleteOnExit();
 
             try (OutputStream outputStream = Files.newOutputStream(tmpFile.toPath())) {
-                byte[] buffer = IOUtils.readAllBytes(inputStream);
+                byte[] buffer = IOUtils.readFully(inputStream, inputStream.available());
                 outputStream.write(buffer);
             }
 

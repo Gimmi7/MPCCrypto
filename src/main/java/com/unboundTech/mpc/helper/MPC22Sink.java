@@ -2,7 +2,7 @@ package com.unboundTech.mpc.helper;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
-import sun.misc.IOUtils;
+import org.apache.commons.io.IOUtils;
 
 import java.io.File;
 import java.io.InputStream;
@@ -46,7 +46,7 @@ public class MPC22Sink {
         File shareFile = new File(shareFilePath);
 
         try (InputStream inputStream = FileUtils.openInputStream(shareFile)) {
-            shareBuf = IOUtils.readAllBytes(inputStream);
+            shareBuf = IOUtils.readFully(inputStream, inputStream.available());
             cachedShareBuf.put(cacheKey, shareBuf);
             return shareBuf;
         } catch (Exception e) {

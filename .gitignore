@@ -36,3 +36,4 @@ build/
 
 data_server
 data_client
+**/*.log
