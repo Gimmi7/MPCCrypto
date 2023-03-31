@@ -34,5 +34,5 @@ build/
 .vscode/
 
 
-server
-client
+data_server
+data_client

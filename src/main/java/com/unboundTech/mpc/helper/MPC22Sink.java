@@ -57,9 +57,9 @@ public class MPC22Sink {
 
 
     private static String getShareFilePath(int peerInt, String userId) {
-        String peer = "server";
+        String peer = "data_server";
         if (peerInt == 1) {
-            peer = "client";
+            peer = "data_client";
         }
         return String.format(shareFileFormat, peer, userId);
     }
