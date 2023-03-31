@@ -22,6 +22,14 @@ public class MPC22Interaction extends ProcessedMsg {
     public byte[] rawBytes;
     public boolean refreshWhenSign;
 
+
+    /**
+     * bip32 seed bits length, [ 128,512 ]
+     * recommend 256
+     */
+    public int seedBits;
+
+
     public static class Command {
         public static String generate = "generate";
         public static String refresh = "refresh";
