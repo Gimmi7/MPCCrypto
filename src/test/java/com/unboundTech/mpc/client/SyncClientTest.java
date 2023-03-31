@@ -25,7 +25,7 @@ class SyncClientTest {
     private String userId = System.getProperty("test.userid", "Alice");
 
     // used for concurrent test
-    @AfterEach
+//    @AfterEach
     void delay() {
         int min = 3000;
         int max = 5000;
@@ -41,10 +41,8 @@ class SyncClientTest {
         }
     }
 
-    @Order(1)
-//    @BeforeAll
+    @BeforeAll
     @SneakyThrows
-    @Test
     void connect() {
         syncClient.userId = userId;
         String url = "ws://localhost:2021/live";
@@ -125,7 +123,7 @@ class SyncClientTest {
     @Test
     void sign() {
         byte[] rawBytes = "hello".getBytes();
-        boolean refreshWhenSign = false;
+        boolean refreshWhenSign = true;
 
         byte[] clientShareBuf = MPC22Sink.loadShare(1, syncClient.userId);
         Share clientShare = Share.fromBuf(clientShareBuf);
