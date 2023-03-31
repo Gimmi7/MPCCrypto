@@ -4,7 +4,7 @@ import com.unboundTech.mpc.Context;
 import com.unboundTech.mpc.Share;
 import com.unboundTech.mpc.helper.MPC22Sink;
 import com.unboundTech.mpc.model.MPC22Interaction;
-import com.unboundTech.mpc.step.MPC22KeyType;
+import com.unboundTech.mpc.step.MPC22ShareType;
 import com.unboundTech.mpc.step.OracleStep;
 import lombok.SneakyThrows;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -22,9 +22,22 @@ class SyncClientTest {
     @Autowired
     private SyncClient syncClient;
 
-    private String userId = System.getProperty("test.userid", "Alice");
+    private final String userId = System.getProperty("test.userid", "Alice");
+    private int shareType = MPC22ShareType.KEY_TYPE_ECDSA;
+    private static final int clientPeer = 1;
 
-    // used for concurrent test
+    @BeforeAll
+    @SneakyThrows
+    void connect() {
+        syncClient.userId = userId;
+        String url = "ws://localhost:2021/live";
+        syncClient.connect(url);
+        System.out.println("client: connect socket success");
+    }
+
+    /**
+     * used for concurrent test
+     */
 //    @AfterEach
     void delay() {
         int min = 3000;
@@ -41,54 +54,40 @@ class SyncClientTest {
         }
     }
 
-    @BeforeAll
-    @SneakyThrows
-    void connect() {
-        syncClient.userId = userId;
-        String url = "ws://localhost:2021/live";
-        syncClient.connect(url);
-        System.out.println("client: connect socket success");
-    }
 
     @Order(2)
     @SneakyThrows
     @Test
-    void generateEcdsa() {
-        OracleStep oracleStep = new OracleStep(null, Context.initGenerateEcdsaKey(1));
-
+    void generateDSA() {
         MPC22Interaction interaction = new MPC22Interaction();
         interaction.initContext = true;
         interaction.command = MPC22Interaction.Command.generate;
-        interaction.type = MPC22Interaction.Type.ecdsa;
 
+        Context context = null;
+
+        if (MPC22ShareType.KEY_TYPE_ECDSA == shareType) {
+            context = Context.initGenerateEcdsaKey(clientPeer);
+            interaction.type = MPC22Interaction.Type.ecdsa;
+        } else if (MPC22ShareType.KEY_TYPE_EDDSA == shareType) {
+            context = Context.initGenerateEddsaKey(clientPeer);
+            interaction.type = MPC22Interaction.Type.eddsa;
+        }
+
+        OracleStep oracleStep = new OracleStep(null, context);
         boolean flag = oracleStep.clientStep(syncClient, interaction);
-        System.out.println("generate flag=" + flag);
+        System.out.println("generateDSA flag=" + flag);
         Assertions.assertTrue(flag);
     }
 
-    @SneakyThrows
-//    @Test
-    void generateEddsa() {
-        OracleStep oracleStep = new OracleStep(null, Context.initGenerateEddsaKey(1));
-
-        MPC22Interaction interaction = new MPC22Interaction();
-        interaction.initContext = true;
-        interaction.command = MPC22Interaction.Command.generate;
-        interaction.type = MPC22Interaction.Type.eddsa;
-
-        boolean flag = oracleStep.clientStep(syncClient, interaction);
-        System.out.println("generate flag=" + flag);
-        Assertions.assertTrue(flag);
-    }
 
     @SneakyThrows
 //    @Test
     void compareShare() {
-        byte[] clientShareBuf = MPC22Sink.loadShare(1, syncClient.userId);
+        byte[] clientShareBuf = MPC22Sink.loadShare(1, syncClient.userId, shareType);
         Share clientShare = Share.fromBuf(clientShareBuf);
         System.out.println("client share:" + ToStringBuilder.reflectionToString(clientShare.getInfo(), ToStringStyle.JSON_STYLE) + ToStringBuilder.reflectionToString(clientShare, ToStringStyle.JSON_STYLE));
 
-        byte[] ServerShareBuf = MPC22Sink.loadShare(2, syncClient.userId);
+        byte[] ServerShareBuf = MPC22Sink.loadShare(2, syncClient.userId, shareType);
         Share serverShare = Share.fromBuf(ServerShareBuf);
         System.out.println("server share:" + ToStringBuilder.reflectionToString(serverShare.getInfo(), ToStringStyle.JSON_STYLE) + ToStringBuilder.reflectionToString(serverShare, ToStringStyle.JSON_STYLE));
     }
@@ -97,23 +96,27 @@ class SyncClientTest {
     @SneakyThrows
     @Test
     void refreshShare() {
-        byte[] clientShareBuf = MPC22Sink.loadShare(1, syncClient.userId);
-        Share clientShare = Share.fromBuf(clientShareBuf);
-        System.out.println("client share:" + ToStringBuilder.reflectionToString(clientShare.getInfo(), ToStringStyle.JSON_STYLE));
-
-        OracleStep oracleStep = new OracleStep(clientShare, clientShare.initRefreshKey(1));
-
         MPC22Interaction interaction = new MPC22Interaction();
         interaction.initContext = true;
         interaction.command = MPC22Interaction.Command.refresh;
 
+        if (MPC22ShareType.KEY_TYPE_ECDSA == shareType) {
+            interaction.type = MPC22Interaction.Type.ecdsa;
+        } else if (MPC22ShareType.KEY_TYPE_EDDSA == shareType) {
+            interaction.type = MPC22Interaction.Type.eddsa;
+        }
 
+        byte[] shareBuf = MPC22Sink.loadShare(clientPeer, userId, shareType);
+        Share share = Share.fromBuf(shareBuf);
+        System.out.println("client share:" + ToStringBuilder.reflectionToString(share.getInfo(), ToStringStyle.JSON_STYLE));
+
+        OracleStep oracleStep = new OracleStep(share, share.initRefreshKey(clientPeer));
         boolean flag = oracleStep.clientStep(syncClient, interaction);
-        System.out.println("flag=" + flag);
+        System.out.println("refreshShare flag=" + flag);
 
-        clientShareBuf = MPC22Sink.loadShare(1, syncClient.userId);
-        clientShare = Share.fromBuf(clientShareBuf);
-        System.out.println("client share:" + ToStringBuilder.reflectionToString(clientShare.getInfo(), ToStringStyle.JSON_STYLE));
+        shareBuf = MPC22Sink.loadShare(clientPeer, userId, shareType);
+        share = Share.fromBuf(shareBuf);
+        System.out.println("client share:" + ToStringBuilder.reflectionToString(share.getInfo(), ToStringStyle.JSON_STYLE));
         Assertions.assertTrue(flag);
     }
 
@@ -125,46 +128,50 @@ class SyncClientTest {
         byte[] rawBytes = "hello".getBytes();
         boolean refreshWhenSign = true;
 
-        byte[] clientShareBuf = MPC22Sink.loadShare(1, syncClient.userId);
-        Share clientShare = Share.fromBuf(clientShareBuf);
-        System.out.println("client share:" + ToStringBuilder.reflectionToString(clientShare.getInfo(), ToStringStyle.JSON_STYLE));
-
-        int shareType = clientShare.getInfo().type;
-        Context context = null;
-
         MPC22Interaction interaction = new MPC22Interaction();
         interaction.initContext = true;
         interaction.command = MPC22Interaction.Command.sign;
         interaction.rawBytes = rawBytes;
         interaction.refreshWhenSign = refreshWhenSign;
 
-        if (MPC22KeyType.KEY_TYPE_ECDSA == shareType) {
-            context = clientShare.initEcdsaSign(1, rawBytes, refreshWhenSign);
+
+        byte[] shareBuf = MPC22Sink.loadShare(clientPeer, userId, shareType);
+        Share share = Share.fromBuf(shareBuf);
+        System.out.println("client share:" + ToStringBuilder.reflectionToString(share.getInfo(), ToStringStyle.JSON_STYLE));
+
+        Context context = null;
+
+        if (MPC22ShareType.KEY_TYPE_ECDSA == shareType) {
+            context = share.initEcdsaSign(clientPeer, rawBytes, refreshWhenSign);
             interaction.type = MPC22Interaction.Type.ecdsa;
-        } else if (MPC22KeyType.KEY_TYPE_EDDSA == shareType) {
-            context = clientShare.initEddsaSign(1, rawBytes, refreshWhenSign);
+        } else if (MPC22ShareType.KEY_TYPE_EDDSA == shareType) {
+            context = share.initEddsaSign(clientPeer, rawBytes, refreshWhenSign);
             interaction.type = MPC22Interaction.Type.eddsa;
         }
 
-        OracleStep oracleStep = new OracleStep(clientShare, context);
-
+        OracleStep oracleStep = new OracleStep(share, context);
         boolean flag = oracleStep.clientStep(syncClient, interaction);
-        System.out.println("flag=" + flag);
+        System.out.println("sign flag=" + flag);
 
         Assertions.assertTrue(flag);
 
+        /**
+         *  update local variable share
+         */
         if (refreshWhenSign) {
-            clientShare.close();
-            clientShare = Share.fromBuf(clientShareBuf);
+            share.close();
+            shareBuf = MPC22Sink.loadShare(clientPeer, userId, shareType);
+            share = Share.fromBuf(shareBuf);
         }
-        if (MPC22KeyType.KEY_TYPE_ECDSA == shareType) {
+
+        if (MPC22ShareType.KEY_TYPE_ECDSA == shareType) {
             byte[] signature = context.getResultEcdsaSign();
-            ECPublicKey pubKey = clientShare.getEcdsaPublic();
+            ECPublicKey pubKey = share.getEcdsaPublic();
             flag = Share.verifyEcdsa(pubKey, rawBytes, signature);
             System.out.println("signature verify flag=" + flag);
-        } else if (MPC22KeyType.KEY_TYPE_EDDSA == shareType) {
+        } else if (MPC22ShareType.KEY_TYPE_EDDSA == shareType) {
             byte[] signature = context.getResultEddsaSign();
-            byte[] pubKey = clientShare.getEddsaPublic();
+            byte[] pubKey = share.getEddsaPublic();
             flag = Share.verifyEddsa(pubKey, rawBytes, signature);
             System.out.println("signature verify flag=" + flag);
         }

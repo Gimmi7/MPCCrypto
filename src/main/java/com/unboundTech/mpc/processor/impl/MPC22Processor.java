@@ -9,6 +9,7 @@ import com.unboundTech.mpc.processor.ReqMsgProcessor;
 import com.unboundTech.mpc.server.ConnectionHolder;
 import com.unboundTech.mpc.socketmsg.ReqKey;
 import com.unboundTech.mpc.socketmsg.RspCode;
+import com.unboundTech.mpc.step.MPC22ShareType;
 import com.unboundTech.mpc.step.OracleStep;
 import io.netty.channel.Channel;
 import lombok.extern.slf4j.Slf4j;
@@ -56,7 +57,7 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
             }
         } else if (MPC22Interaction.Command.refresh.equals(msg.command)) {
             // load share
-            share = this.loadShareAutoFailRsp();
+            share = this.loadShareAutoFailRsp(msg.type);
             if (share == null) {
                 return;
             }
@@ -68,7 +69,7 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
                 return;
             }
         } else if (MPC22Interaction.Command.sign.equals(msg.command)) {
-            share = this.loadShareAutoFailRsp();
+            share = this.loadShareAutoFailRsp(msg.type);
             if (share == null) {
                 return;
             }
@@ -98,10 +99,24 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
     }
 
 
-    private Share loadShareAutoFailRsp() {
-        byte[] shareBuf = MPC22Sink.loadShare(serverPeer, getUserId());
-
+    private Share loadShareAutoFailRsp(String interactionType) {
         RspCode rspCode = RspCode.load_share_fail;
+
+        int shareType = 0;
+        if (MPC22Interaction.Type.ecdsa.equals(interactionType)) {
+            shareType = MPC22ShareType.KEY_TYPE_ECDSA;
+        } else if (MPC22Interaction.Type.eddsa.equals(interactionType)) {
+            shareType = MPC22ShareType.KEY_TYPE_EDDSA;
+        } else if (MPC22Interaction.Type.generic.equals(interactionType)) {
+            shareType = MPC22ShareType.KEY_TYPE_GENERIC_SECRET;
+        } else {
+            // send fail rsp
+            failRsp(rspCode.errCode, rspCode.errMsg + ": no supported share for interactionType=" + interactionType);
+            return null;
+        }
+
+        byte[] shareBuf = MPC22Sink.loadShare(serverPeer, getUserId(), shareType);
+
         if (shareBuf == null) {
             // send fail rsp
             failRsp(rspCode.errCode, rspCode.errMsg);

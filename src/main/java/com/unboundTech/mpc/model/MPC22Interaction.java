@@ -3,15 +3,24 @@ package com.unboundTech.mpc.model;
 import com.unboundTech.mpc.processor.ProcessedMsg;
 
 public class MPC22Interaction extends ProcessedMsg {
-    // when initContext=true, server will init a new context with old context discarded
+    /**
+     * when initContext=true, server will init a new context
+     * with old context discarded
+     */
     public boolean initContext;
     public String command;
     public String type;
-    // content to be signed
+    /**
+     * message used by mpc_protocol
+     */
+    public byte[] messageBuf;
+
+
+    /**
+     * content to be signed
+     */
     public byte[] rawBytes;
     public boolean refreshWhenSign;
-    // Message used by so
-    public byte[] messageBuf;
 
     public static class Command {
         public static String generate = "generate";
