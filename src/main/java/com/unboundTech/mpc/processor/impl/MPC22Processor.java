@@ -9,7 +9,6 @@ import com.unboundTech.mpc.processor.ReqMsgProcessor;
 import com.unboundTech.mpc.server.ConnectionHolder;
 import com.unboundTech.mpc.socketmsg.ReqKey;
 import com.unboundTech.mpc.socketmsg.RspCode;
-import com.unboundTech.mpc.step.MPC22ShareType;
 import com.unboundTech.mpc.step.OracleStep;
 import io.netty.channel.Channel;
 import lombok.extern.slf4j.Slf4j;
@@ -41,38 +40,30 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
 
         if (MPC22Interaction.Command.generate.equals(msg.command)) {
             RspCode rspCode = RspCode.init_generate_fail;
-            if (MPC22Interaction.Type.ecdsa.equals(msg.type)) {
+            if (MPC22Interaction.ShareType.KEY_TYPE_ECDSA == msg.shareType) {
                 try {
                     context = Context.initGenerateEcdsaKey(serverPeer);
                 } catch (MPCException e) {
                     log.error("initGenerateEcdsaKey err, mpcErrCode={}, userId={}, interaction={}:", e.errorCode, getUserId(), msg, e);
-                    failRsp(rspCode.errCode, rspCode.errMsg + ":" + msg.type + ", mpcErrCode=" + e.errorCode);
+                    failRsp(rspCode.errCode, rspCode.errMsg + ":" + msg.shareType + ", mpcErrCode=" + e.errorCode);
                     return;
                 }
-            } else if (MPC22Interaction.Type.eddsa.equals(msg.type)) {
+            } else if (MPC22Interaction.ShareType.KEY_TYPE_EDDSA == msg.shareType) {
                 try {
                     context = Context.initGenerateEddsaKey(serverPeer);
                 } catch (MPCException e) {
                     log.error("initGenerateEddsaKey err, mpcErrCode={}, userId={}, interaction={}:", e.errorCode, getUserId(), msg, e);
-                    failRsp(rspCode.errCode, rspCode.errMsg + ":" + msg.type + ", mpcErrCode=" + e.errorCode);
-                    return;
-                }
-            } else if (MPC22Interaction.Type.generic.equals(msg.type)) {
-                try {
-                    context = Context.initGenerateGenericSecret(serverPeer, msg.seedBits);
-                } catch (MPCException e) {
-                    log.error("initGenerateGenericSecret err, mpcErrCode={}, userId={}, interaction={}:", e.errorCode, getUserId(), msg, e);
-                    failRsp(rspCode.errCode, rspCode.errMsg + ":" + msg.type + ", mpcErrCode=" + e.errorCode);
+                    failRsp(rspCode.errCode, rspCode.errMsg + ":" + msg.shareType + ", mpcErrCode=" + e.errorCode);
                     return;
                 }
             } else {
                 log.error("generate_command err, unsupported interactionType,  userId={}, interaction={}:", getUserId(), msg);
-                failRsp(rspCode.errCode, rspCode.errMsg + ":unsupported interactionType=" + msg.type);
+                failRsp(rspCode.errCode, rspCode.errMsg + ":unsupported interactionType=" + msg.shareType);
                 return;
             }
         } else if (MPC22Interaction.Command.refresh.equals(msg.command)) {
             // load share
-            share = this.loadShareAutoFailRsp(msg.type);
+            share = this.loadShareAutoFailRsp(msg.shareType, msg.shareUid);
             if (share == null) {
                 log.error("loadShare err: userId={}, interaction={}", getUserId(), msg);
                 return;
@@ -87,14 +78,14 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
             }
         } else if (MPC22Interaction.Command.sign.equals(msg.command)) {
             // load share
-            share = this.loadShareAutoFailRsp(msg.type);
+            share = this.loadShareAutoFailRsp(msg.shareType, msg.shareUid);
             if (share == null) {
                 log.error("loadShare err: userId={}, interaction={}", getUserId(), msg);
                 return;
             }
 
             RspCode rspCode = RspCode.init_sign_fail;
-            if (MPC22Interaction.Type.ecdsa.equals(msg.type)) {
+            if (MPC22Interaction.ShareType.KEY_TYPE_ECDSA == msg.shareType) {
                 try {
                     context = share.initEcdsaSign(serverPeer, msg.rawBytes, msg.refreshWhenSign);
                 } catch (MPCException e) {
@@ -102,7 +93,7 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
                     failRsp(rspCode.errCode, rspCode.errMsg + ":" + e.errorCode);
                     return;
                 }
-            } else if (MPC22Interaction.Type.eddsa.equals(msg.type)) {
+            } else if (MPC22Interaction.ShareType.KEY_TYPE_EDDSA == msg.shareType) {
                 try {
                     context = share.initEddsaSign(serverPeer, msg.rawBytes, msg.refreshWhenSign);
                 } catch (MPCException e) {
@@ -110,11 +101,16 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
                     failRsp(rspCode.errCode, rspCode.errMsg + ":" + e.errorCode);
                     return;
                 }
-            }else {
+            } else {
                 log.error("sign_command err, unsupported interactionType,  userId={}, interaction={}:", getUserId(), msg);
-                failRsp(rspCode.errCode, rspCode.errMsg + ":unsupported interactionType=" + msg.type);
+                failRsp(rspCode.errCode, rspCode.errMsg + ":unsupported interactionType=" + msg.shareType);
                 return;
             }
+        }  else {
+            RspCode rspCode = RspCode.parameter_invalid;
+            log.error("mpc22 err, unsupported command,  userId={}, interaction={}:", getUserId(), msg);
+            failRsp(rspCode.errCode, rspCode.errMsg + ":unsupported mpc22 command=" + msg.command);
+            return;
         }
 
 
@@ -124,24 +120,10 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
     }
 
 
-    private Share loadShareAutoFailRsp(String interactionType) {
+    private Share loadShareAutoFailRsp(int shareType, long shareUid) {
         RspCode rspCode = RspCode.load_share_fail;
 
-        int shareType = 0;
-        if (MPC22Interaction.Type.ecdsa.equals(interactionType)) {
-            shareType = MPC22ShareType.KEY_TYPE_ECDSA;
-        } else if (MPC22Interaction.Type.eddsa.equals(interactionType)) {
-            shareType = MPC22ShareType.KEY_TYPE_EDDSA;
-        } else if (MPC22Interaction.Type.generic.equals(interactionType)) {
-            shareType = MPC22ShareType.KEY_TYPE_GENERIC_SECRET;
-        } else {
-            // send fail rsp
-            log.error("loadShare err:no supported share for interactionType={}", interactionType);
-            failRsp(rspCode.errCode, rspCode.errMsg + ": no supported share for interactionType=" + interactionType);
-            return null;
-        }
-
-        byte[] shareBuf = MPC22Sink.loadShare(serverPeer, getUserId(), shareType);
+        byte[] shareBuf = MPC22Sink.loadShare(serverPeer, getUserId(), shareType, shareUid);
 
         if (shareBuf == null) {
             // send fail rsp

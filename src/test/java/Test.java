@@ -26,8 +26,6 @@ import com.unboundTech.mpc.Message;
 import com.unboundTech.mpc.Share;
 import com.unboundTech.mpc.helper.MPC22Sink;
 
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
@@ -403,11 +401,8 @@ public class Test {
         }
     }
 
-    public static void main(String[] args) throws Exception {
-        testGenericSecretGen();
-    }
 
-    public static void main2(String args[]) {
+    public static void main(String args[]) {
         try {
             TestShare eddsaKey = testEddsaGen();
             testEddsaBackup(eddsaKey);

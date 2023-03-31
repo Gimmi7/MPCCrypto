@@ -9,12 +9,14 @@ public class MPC22Interaction extends ProcessedMsg {
      */
     public boolean initContext;
     public String command;
-    public String type;
+    public int shareType;
     /**
      * message used by mpc_protocol
      */
     public byte[] messageBuf;
 
+
+    public long shareUid;
 
     /**
      * content to be signed
@@ -23,27 +25,16 @@ public class MPC22Interaction extends ProcessedMsg {
     public boolean refreshWhenSign;
 
 
-    /**
-     * bip32 seed bits length, [ 128,512 ]
-     * recommend 256
-     */
-    public int seedBits;
-
-
     public static class Command {
-        public static String generate = "generate";
-        public static String refresh = "refresh";
-        public static String import_ = "import";
-        public static String sign = "sign";
-        public static String derive = "derive";
+        public static final String generate = "generate";
+        public static final String refresh = "refresh";
+        public static final String sign = "sign";
     }
 
-    public static class Type {
-        public static String eddsa = "eddsa";
-        public static String ecdsa = "ecdsa";
-        public static String bip32 = "bip32";
-        public static String generic = "generic";
+    public static class ShareType {
+        public static final int KEY_TYPE_EDDSA = 2;
+        public static final int KEY_TYPE_ECDSA = 3;
+        public static final int KEY_TYPE_GENERIC_SECRET = 4; // bip32 seed share
     }
-
 
 }
