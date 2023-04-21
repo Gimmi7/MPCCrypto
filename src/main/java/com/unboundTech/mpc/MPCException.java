@@ -23,8 +23,6 @@
 
 package com.unboundTech.mpc;
 
-import sun.security.rsa.RSAUtil;
-
 public class MPCException extends Exception {
     public static final int MPC_E_BADARG = (int) 0xff010002; // bad argument -16711678
     public static final int MPC_E_FORMAT = (int) 0xff010003; // invalid format  -16711677
