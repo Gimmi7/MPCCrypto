@@ -1,5 +1,6 @@
 package com.unboundTech.mpc.client;
 
+import com.alibaba.fastjson2.JSON;
 import com.unboundTech.mpc.Context;
 import com.unboundTech.mpc.Share;
 import com.unboundTech.mpc.helper.MPC22Sink;
@@ -105,7 +106,10 @@ class SyncClientTest {
         interaction.shareUid = share.getInfo().UID;
         System.out.println("client share:" + ToStringBuilder.reflectionToString(share.getInfo(), ToStringStyle.JSON_STYLE));
 
-        OracleStep oracleStep = new OracleStep(share, share.initRefreshKey(clientPeer));
+        Context ctx = share.initRefreshKey(clientPeer);
+        long ctxUid = ctx.getInfo().UID;
+        System.out.println("after client share.initRefreshKey, ctxUid=" + ctxUid);
+        OracleStep oracleStep = new OracleStep(share, ctx);
         boolean flag = oracleStep.clientStep(syncClient, interaction);
         System.out.println("refreshShare flag=" + flag);
 
@@ -133,7 +137,7 @@ class SyncClientTest {
 
         byte[] shareBuf = MPC22Sink.loadFirstShare(clientPeer, userId, shareType);
         Share share = Share.fromBuf(shareBuf);
-        interaction.shareUid=share.getInfo().UID;
+        interaction.shareUid = share.getInfo().UID;
         System.out.println("client share:" + ToStringBuilder.reflectionToString(share.getInfo(), ToStringStyle.JSON_STYLE));
 
         Context context = null;

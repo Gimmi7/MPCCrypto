@@ -36,7 +36,8 @@ public class OracleStep implements AutoCloseable {
                 Message inMessage = (msgBuf == null) ? null : Message.fromBuf(msgBuf);
                 Context.MessageAndFlags messageAndFlags = context.step(inMessage);
         ) {
-            System.out.println("inMessage=" + inMessage);
+            String inMessageInfo = (inMessage == null) ? "null" : ToStringBuilder.reflectionToString(inMessage.getInfo(), ToStringStyle.JSON_STYLE);
+            System.out.println("inMessage=" + inMessageInfo);
             System.out.println("mf=" + ToStringBuilder.reflectionToString(messageAndFlags, ToStringStyle.JSON_STYLE));
 
 
@@ -94,7 +95,8 @@ public class OracleStep implements AutoCloseable {
                 Message inMessage = (msgBuf == null) ? null : Message.fromBuf(msgBuf);
                 Context.MessageAndFlags messageAndFlags = context.step(inMessage);
         ) {
-            System.out.println("inMessage=" + inMessage);
+            String inMessageInfo = (inMessage == null) ? "null" : ToStringBuilder.reflectionToString(inMessage.getInfo(), ToStringStyle.JSON_STYLE);
+            System.out.println("inMessage=" + inMessageInfo);
             System.out.println("mf=" + ToStringBuilder.reflectionToString(messageAndFlags, ToStringStyle.JSON_STYLE));
 
             finished = messageAndFlags.protocolFinished;

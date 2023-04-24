@@ -70,6 +70,8 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
             }
             try {
                 context = share.initRefreshKey(serverPeer);
+                long ctxUid = context.getInfo().UID;
+                System.out.println("after server share.initRefreshKey, ctxUid=" + ctxUid);
             } catch (MPCException e) {
                 log.error("share.initRefreshKey err, mpcErrCode={}, userId={}, interaction={}:", e.errorCode, getUserId(), msg, e);
                 RspCode rspCode = RspCode.init_refresh_fail;
@@ -106,7 +108,7 @@ public class MPC22Processor extends ReqMsgProcessor<MPC22Interaction> {
                 failRsp(rspCode.errCode, rspCode.errMsg + ":unsupported interactionType=" + msg.shareType);
                 return;
             }
-        }  else {
+        } else {
             RspCode rspCode = RspCode.parameter_invalid;
             log.error("mpc22 err, unsupported command,  userId={}, interaction={}:", getUserId(), msg);
             failRsp(rspCode.errCode, rspCode.errMsg + ":unsupported mpc22 command=" + msg.command);
